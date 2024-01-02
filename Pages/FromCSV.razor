@@ -1,0 +1,192 @@
+﻿@page "/fromCSV"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.Graph
+@using EmployeeDrawings.Data;
+@inject Microsoft.Graph.GraphServiceClient GraphServiceClient
+@inject IJSRuntime JsRuntime
+@attribute [Authorize]
+
+<PageTitle>From CSV</PageTitle>
+
+<h1>From CSV</h1>
+
+<InputFile OnChange="@FileSelectionHandler" />
+<button @onclick="ReadFile">Read File</button>
+
+<br />
+<label for="numWinners" id="numWinnersLabel">Number of Winners: </label>
+<input type="number" id="numWinners" @onchange="NumWinnersChangeHandler" required />
+<br />
+<label for="numAlternates" id="numAlternates">Number of Alternates: </label>
+<input type="number" id="numAlternates" @onchange="NumAlternatesChangeHandler" required />
+<br />
+<button @onclick="ExecuteDrawing">Generate Results of Drawing</button>
+<br />
+
+@if (users != null) {
+    <h3> Selected Employees </h3>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>DisplayName</th>
+                <th>JobTitle</th>
+                <th>Department</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in users) {
+                <tr>
+                    <td> @user.DisplayName </td>
+                    <td> @user.JobTitle </td>
+                    <td> @user.Department </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (winners != null) {
+    <h3> Selected Winners </h3>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>DisplayName</th>
+                <th>JobTitle</th>
+                <th>Department</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in winners) {
+                <tr>
+                    <td> @user.DisplayName </td>
+                    <td> @user.JobTitle </td>
+                    <td> @user.Department </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (alternates != null) {
+    <h3> Selected Alternates </h3>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>DisplayName</th>
+                <th>JobTitle</th>
+                <th>Department</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in alternates) {
+                <tr>
+                    <td> @user.DisplayName </td>
+                    <td> @user.JobTitle </td>
+                    <td> @user.Department </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IBrowserFile? file;
+    private string? fileContent;
+
+    private IEnumerable<User>? users;
+    private IEnumerable<User>? winners;
+    private IEnumerable<User>? alternates;
+
+    private int? numWinners;
+    private int? numAlternates;
+    private Random r = new Random();
+
+    private void NumWinnersChangeHandler(ChangeEventArgs e) {
+        if (e.Value != null) { numWinners = Int32.Parse(e.Value.ToString()!.Equals("") ? "0" : e.Value.ToString()!); }
+    }
+
+    private void NumAlternatesChangeHandler(ChangeEventArgs e) {
+        if (e.Value != null) { numAlternates = Int32.Parse(e.Value.ToString()!.Equals("") ? "0" : e.Value.ToString()!); }
+    }
+
+    private async void ExecuteDrawing() {
+        if (fileContent == null) { await ReadFile(); }
+
+        if (users == null) { 
+            await alert("File not read");  
+        } else if (numWinners == null || numAlternates == null) {
+            await alert("A number of winners and alternates must be selected before generating a result");
+        } else if (numWinners <= 0) {
+            await alert("Number of winners must be greater than 0");
+        } else if (numWinners > users.Count()) { 
+            await alert("The number of winners must be less than the number of selected employees"); 
+        } else if (numAlternates < 0) {
+            await alert("The number of alternates must be positive");
+        } else if (numWinners + numAlternates > users.Count()) {
+            await alert("The number of winners and alternates, combined, must be less than the number of selected employees");
+        } else {
+            List<User> tmp = users.ToList<User>();
+            int idx = r.Next(tmp.Count());
+            winners = new List<User>();
+            for (int i = 0; i < numWinners; i++) {
+                winners = winners.Append(tmp[idx]);
+                tmp.RemoveAt(idx);
+                idx = r.Next(tmp.Count());
+            }
+
+            alternates = new List<User>();
+            for (int i = 0; i < numAlternates; i++) {
+                alternates = alternates.Append(tmp[idx]);
+                tmp.RemoveAt(idx);
+                idx = r.Next(tmp.Count());
+            }
+        }
+    }
+
+    private async void FileSelectionHandler(InputFileChangeEventArgs e) {
+        if (e.File.Name.EndsWith(".csv")) {
+            file = e.File;
+        } else {
+            await alert("Only .csv accepted as file type");
+        }
+    }
+
+    private async Task ReadFile() {
+        if (file != null) {
+            var stream = file.OpenReadStream();
+            var buffer = new byte[file.Size];
+            await stream.ReadAsync(buffer, 0, (int)file.Size);
+            fileContent = System.Text.Encoding.UTF8.GetString(buffer);
+
+            string[] upns = fileContent.Split(",");
+            users = new List<User>();
+
+            foreach(string upn in upns) {
+                try {
+                    IGraphServiceUsersCollectionPage data = await GraphServiceClient.Users.Request(
+                    ).Filter(
+                        $"userPrincipalName eq '{upn.ToLower().Trim()}'"
+                    ).Select(
+                        u => new {
+                            u.DisplayName,
+                            u.JobTitle,
+                            u.Department
+                        }
+                    ).GetAsync();
+
+                    foreach (User user in data) { users = users.Append(user); }
+                } catch {
+                    Console.WriteLine("Couldn't find " + upn);
+                }
+            }
+
+        } else {
+            await alert("Ensure file type is .csv");
+        }
+    }
+
+    private async Task alert(string msg) {
+        await JsRuntime.InvokeVoidAsync("alert", msg);
+    }
+
+}
