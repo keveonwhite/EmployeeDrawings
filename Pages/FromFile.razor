@@ -1,13 +1,13 @@
-﻿@page "/fromCSV"
+﻿@page "/fromFile"
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.Graph
 @using EmployeeDrawings.Data;
 @inject Microsoft.Graph.GraphServiceClient GraphServiceClient
 @inject IJSRuntime JsRuntime
 
-<PageTitle>From CSV</PageTitle>
+<PageTitle>From File</PageTitle>
 
-<h1>From CSV</h1>
+<h1>From File</h1>
 
 <InputFile OnChange="@FileSelectionHandler" />
 <button @onclick="ReadFile">Read File</button>
