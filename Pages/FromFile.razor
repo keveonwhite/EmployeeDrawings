@@ -2,8 +2,10 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.Graph
 @using EmployeeDrawings.Data;
+@using ClosedXML.Excel;
 @inject Microsoft.Graph.GraphServiceClient GraphServiceClient
 @inject IJSRuntime JsRuntime
+@attribute [Authorize]
 
 <PageTitle>From File</PageTitle>
 
@@ -157,14 +159,16 @@
             await stream.ReadAsync(buffer, 0, (int)file.Size);
             fileContent = System.Text.Encoding.UTF8.GetString(buffer);
 
-            string[] upns = fileContent.Split(",");
+            Console.WriteLine(fileContent);
+
+            string[] eins = fileContent.Split(",");
             users = new List<User>();
 
-            foreach(string upn in upns) {
+            foreach(string ein in eins) {
                 try {
                     IGraphServiceUsersCollectionPage data = await GraphServiceClient.Users.Request(
                     ).Filter(
-                        $"userPrincipalName eq '{upn.ToLower().Trim()}'"
+                        $"userPrincipalName eq '{ein.ToLower().Trim()}'"
                     ).Select(
                         u => new {
                             u.DisplayName,
@@ -175,10 +179,9 @@
 
                     foreach (User user in data) { users = users.Append(user); }
                 } catch {
-                    Console.WriteLine("Couldn't find " + upn);
+                    Console.WriteLine("Couldn't find " + ein);
                 }
             }
-
         } else {
             await alert("Ensure file type is .csv");
         }
@@ -188,4 +191,7 @@
         await JsRuntime.InvokeVoidAsync("alert", msg);
     }
 
+    
+    // TODO: API to sharepoint for employee numbers
+    // users will construct xlsx and save as csv; excels can't be read asynchronously
 }
