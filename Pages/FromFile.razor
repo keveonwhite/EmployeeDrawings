@@ -1,15 +1,14 @@
-﻿@page "/fromFile"
+﻿@page "/"
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.Graph
 @using EmployeeDrawings.Data;
-@using ClosedXML.Excel;
 @inject Microsoft.Graph.GraphServiceClient GraphServiceClient
 @inject IJSRuntime JsRuntime
 @attribute [Authorize]
 
-<PageTitle>From File</PageTitle>
+<PageTitle>Employee Drawings</PageTitle>
 
-<h1>From File</h1>
+<h1>Employee Drawings</h1>
 
 <InputFile OnChange="@FileSelectionHandler" />
 <button @onclick="ReadFile">Read File</button>
