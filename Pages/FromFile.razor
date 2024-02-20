@@ -31,31 +31,31 @@
     <ul class="nav nav-pills nav-fill">
         @if (currentContext.Equals("Selected")) {
             <li class="nav-item">
-                <a class="nav-link active" aria-current="page" href="#" @onclick="@(e => UpdateContext("Selected"))">Selected</a>
+                <a class="nav-link active" aria-current="page" href="#" @onclick="@(e => UpdateContext("Selected"))">Selected : @numSelected </a>
             </li>
         } else {
             <li class="nav-item">
-                <a class="nav-link" aria-current="page" href="#" @onclick="@(e => UpdateContext("Selected"))">Selected</a>
+                <a class="nav-link" aria-current="page" href="#" @onclick="@(e => UpdateContext("Selected"))">Selected : @numSelected </a>
             </li>
         }
 
         @if (currentContext.Equals("Winners")) {
             <li class="nav-item">
-                <a class="nav-link active" href="#" @onclick="@(e => UpdateContext("Winners"))">Winners</a>
+                <a class="nav-link active" href="#" @onclick="@(e => UpdateContext("Winners"))">Winners : @(winners.Count()) </a>
             </li>
         } else {
             <li class="nav-item">
-                <a class="nav-link" href="#" @onclick="@(e => UpdateContext("Winners"))">Winners</a>
+                <a class="nav-link" href="#" @onclick="@(e => UpdateContext("Winners"))">Winners : @(winners.Count()) </a>
             </li>
         }
 
         @if (currentContext.Equals("Alternates")) {
             <li class="nav-item">
-                <a class="nav-link active" href="#" @onclick="@(e => UpdateContext("Alternates"))">Alternates</a>
+                <a class="nav-link active" href="#" @onclick="@(e => UpdateContext("Alternates"))">Alternates : @(alternates.Count()) </a>
             </li>
         } else {
             <li class="nav-item">
-                <a class="nav-link" href="#" @onclick="@(e => UpdateContext("Alternates"))">Alternates</a>
+                <a class="nav-link" href="#" @onclick="@(e => UpdateContext("Alternates"))">Alternates : @(alternates.Count()) </a>
             </li>
         }
 
@@ -182,6 +182,7 @@
     private IEnumerable<Dictionary<string, string>>? alternates;
     private IEnumerable<Dictionary<string, string>>? displayList;
 
+    private int? numSelected;
     private int? numWinners;
     private int? numAlternates;
     private Random r = new Random();
@@ -2472,9 +2473,9 @@ Emma Louise Boocock,Emma,Louise,Boocock,18139,COUNSELOR-TRIAGE,Social Services B
 Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,Elementary School,Sharon Mousseau,cpolanc1@oneidanation.org,ELEMENTARY SCHOOL
 ";
 
-        string[] userDbStringLines = userDbString.Split('\n');
+        string[] userDbStringLines = userDbString.Split("\n", StringSplitOptions.TrimEntries);
         foreach (string line in userDbStringLines) {
-            string[] fields = line.Split(",");
+            string[] fields = line.Split(",", StringSplitOptions.TrimEntries);
             if (fields.Length != 10) { continue; }
 
             Dictionary<string, string> userInfo = new();
@@ -2505,21 +2506,27 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
 
         if (users == null) {
             await alert("File not read");
+            return;
         }
         else if (numWinners == null || numAlternates == null) {
             await alert("A number of winners and alternates must be selected before generating a result");
+            return;
         }
         else if (numWinners <= 0) {
             await alert("Number of winners must be greater than 0");
+            return;
         }
         else if (numWinners > users.Count()) {
             await alert("The number of winners must be less than the number of selected employees");
+            return;
         }
         else if (numAlternates < 0) {
             await alert("The number of alternates must be positive");
+            return;
         }
         else if (numWinners + numAlternates > users.Count()) {
             await alert("The number of winners and alternates, combined, must be less than the number of selected employees");
+            return;
         }
         else {
             List<Dictionary<string, string>> tmp = users.ToList<Dictionary<string, string>>();
@@ -2578,10 +2585,15 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
                 await stream.ReadAsync(buffer, 0, (int)file.Size);
                 fileContent = System.Text.Encoding.UTF8.GetString(buffer);
 
-                string[] eins = fileContent.Split("\n", StringSplitOptions.TrimEntries);
+                string[] lines = fileContent.Split("\n", StringSplitOptions.TrimEntries);
                 users = new List<Dictionary<string, string>>();
 
-                foreach (string ein in eins) {
+                foreach (string line in lines) {
+                    if (line.Count() == 0) { continue; }
+                    string ein = line.Split(",", StringSplitOptions.TrimEntries)[0];
+
+                    if (ein.Count() == 0) { continue; }
+
                     Dictionary<string, string>? userInfo;
                     if (userInfoDictionary.TryGetValue(ein, out userInfo)) {
                         users = users.Append(userInfo);
@@ -2592,6 +2604,7 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
                 users.ToList<Dictionary<string, string>>().Sort(CompareDicts);
 
                 displayList = users;
+                numSelected = users.Count();
             }
             else {
                 await alert("Ensure file type is .csv");
@@ -2615,7 +2628,7 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
 
     private async Task DownloadPdf() {
         // await using var module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./HtmlToPdf.js");
-        var module = await JsRuntime.InvokeAsync<IJSObjectReference>("import", new object[] { "/HtmlToPdf.js" });
+        await using var module = await JsRuntime.InvokeAsync<IJSObjectReference>("import", new object[] { "/HtmlToPdf.js" });
 
         // Generate and download the PDF
         await JsRuntime.InvokeVoidAsync("generateAndDownloadPdf", "<h2>Test</h2>", "sample.pdf");
