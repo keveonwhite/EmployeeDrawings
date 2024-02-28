@@ -13,8 +13,6 @@
 
 <InputFile OnChange="@FileSelectionHandler" />
 
-<!-- <button @onclick="ReadFile">Read File</button> -->
-
 <div>
 <label for="numWinners" id="numWinnersLabel">Number of Winners: </label>
 <input type="number" id="numWinners" @onchange="NumWinnersChangeHandler" required />
@@ -22,40 +20,41 @@
 <label for="numAlternates" id="numAlternates" style="padding-left: 5vw;">Number of Alternates: </label>
 <input type="number" id="numAlternates" @onchange="NumAlternatesChangeHandler" required />
 
-<button @onclick="ExecuteDrawing" disabled=@isGenerating>Generate Results of Drawing</button>
+<label style="padding-left: 5vw;"></label>
+<button @onclick="@ExecuteDrawing">Generate Results of Drawing</button>
 </div>
 
 <br />
 
 @if (users != null) {
     <ul class="nav nav-pills nav-fill">
-        @if (currentContext.Equals("Selected")) {
+        @if (currentDisplayContext.Equals(DisplayContext.Selected)) {
             <li class="nav-item">
-                <a class="nav-link active" aria-current="page" href="#" @onclick="@(e => UpdateContext("Selected"))">Selected : @numSelected </a>
+                <a class="nav-link active" aria-current="page" href="#" @onclick="@(e => UpdateDisplayContext(DisplayContext.Selected))">Selected : @numSelected </a>
             </li>
         } else {
             <li class="nav-item">
-                <a class="nav-link" aria-current="page" href="#" @onclick="@(e => UpdateContext("Selected"))">Selected : @numSelected </a>
+                <a class="nav-link" aria-current="page" href="#" @onclick="@(e => UpdateDisplayContext(DisplayContext.Selected))">Selected : @numSelected </a>
             </li>
         }
 
-        @if (currentContext.Equals("Winners")) {
+        @if (currentDisplayContext.Equals(DisplayContext.Winners)) {
             <li class="nav-item">
-                <a class="nav-link active" href="#" @onclick="@(e => UpdateContext("Winners"))">Winners : @(winners?.Count() ?? 0) </a>
+                <a class="nav-link active" href="#" @onclick="@(e => UpdateDisplayContext(DisplayContext.Winners))">Winners : @(winners?.Count() ?? 0) </a>
             </li>
         } else {
             <li class="nav-item">
-                <a class="nav-link" href="#" @onclick="@(e => UpdateContext("Winners"))">Winners : @(winners?.Count() ?? 0) </a>
+                <a class="nav-link" href="#" @onclick="@(e => UpdateDisplayContext(DisplayContext.Winners))">Winners : @(winners?.Count() ?? 0) </a>
             </li>
         }
 
-        @if (currentContext.Equals("Alternates")) {
+        @if (currentDisplayContext.Equals(DisplayContext.Alternates)) {
             <li class="nav-item">
-                <a class="nav-link active" href="#" @onclick="@(e => UpdateContext("Alternates"))">Alternates : @(alternates?.Count() ?? 0) </a>
+                <a class="nav-link active" href="#" @onclick="@(e => UpdateDisplayContext(DisplayContext.Alternates))">Alternates : @(alternates?.Count() ?? 0) </a>
             </li>
         } else {
             <li class="nav-item">
-                <a class="nav-link" href="#" @onclick="@(e => UpdateContext("Alternates"))">Alternates : @(alternates?.Count() ?? 0) </a>
+                <a class="nav-link" href="#" @onclick="@(e => UpdateDisplayContext(DisplayContext.Alternates))">Alternates : @(alternates?.Count() ?? 0) </a>
             </li>
         }
 
@@ -91,80 +90,6 @@
     </table>
 }
 
-<!--
-@if (winners != null) {
-    <h3> Selected Winners </h3>
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Department</th>
-                <th>Name</th>
-                <th>EE#</th>
-                <th>Position</th>
-                <th>Supervisor</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var user in winners) {
-                @if (false) { // currentDept != user["Department"]) {
-                    @(currentDept = user["Department"])
-                    <tr>
-                        <td> @user["Department"] </td>
-                        <td> </td>
-                        <td> </td>
-                        <td> </td>
-                        <td> </td>
-                    </tr>
-                }
-                <tr>
-                    <td> @user["Department"] </td>
-                    <td> @user["Surname"], @user["GivenName"] @user["MiddleInitial"] </td>
-                    <td> @user["EIN"] </td>
-                    <td> @user["JobTitle"] </td>
-                    <td> @user["Supervisor"] </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
-
-@if (alternates != null) {
-    <h3> Selected Alternates </h3>
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Department</th>
-                <th>Name</th>
-                <th>EE#</th>
-                <th>Position</th>
-                <th>Supervisor</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var user in alternates) {
-                @if (false) { // currentDept != user["Department"]) {
-                    @(currentDept = user["Department"])
-                    <tr>
-                        <td> @user["Department"] </td>
-                        <td> </td>
-                        <td> </td>
-                        <td> </td>
-                        <td> </td>
-                    </tr>
-                }
-                <tr>
-                    <td> @user["Department"] </td>
-                    <td> @user["Surname"], @user["GivenName"] @user["MiddleInitial"] </td>
-                    <td> @user["EIN"] </td>
-                    <td> @user["JobTitle"] </td>
-                    <td> @user["Supervisor"] </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
--->
-
 @code {
     private IBrowserFile? file;
     private string? fileContent;
@@ -182,9 +107,10 @@
     private Dictionary<string, Dictionary<string, string>> userInfoDictionary = new();
     private string? userDbString;
 
-    private string currentDept = "";
-    private string currentContext = "Selected";
-    private bool isGenerating;
+    private DisplayContext currentDisplayContext = DisplayContext.Selected;
+    private bool isGenerated;
+
+    enum DisplayContext { Selected, Winners, Alternates }
 
     protected override void OnInitialized() {
         userDbString = @"
@@ -2488,16 +2414,21 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
 
     private void NumWinnersChangeHandler(ChangeEventArgs e) {
         if (e.Value != null) { numWinners = Int32.Parse(e.Value.ToString()!.Equals("") ? "0" : e.Value.ToString()!); }
+        isGenerated = false;
     }
 
     private void NumAlternatesChangeHandler(ChangeEventArgs e) {
         if (e.Value != null) { numAlternates = Int32.Parse(e.Value.ToString()!.Equals("") ? "0" : e.Value.ToString()!); }
+        isGenerated = false;
     }
 
     private async void ExecuteDrawing() {
-        if (isGenerating) { return; }
+        if (isGenerated) { 
+            await alert("Cannot generate new list without changing file, number of winners, or number of alternates");
+            return;
+        }
 
-        isGenerating = true;
+        isGenerated = true;
         try {
             await ReadFile();
 
@@ -2506,18 +2437,23 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
             if (users == null) { await alert("File not read"); }
             else if (numWinners == null) {
                 await alert("A number of winners must be selected before generating a result");
+                return;
             }
             else if (numWinners <= 0) {
                 await alert("Number of winners must be greater than 0");
+                return;
             }
             else if (numWinners > users.Count()) {
                 await alert("The number of winners must be less than or equal to the number of selected employees");
+                return;
             }
             else if (numAlternates < 0) {
                 await alert("The number of alternates must be positive");
+                return;
             }
             else if (numWinners + numAlternates > users.Count()) {
                 await alert("The number of winners and alternates, combined, must be less than the number of selected employees");
+                return;
             }
             else {
                 List<Dictionary<string, string>> tmp = users.ToList<Dictionary<string, string>>();
@@ -2538,15 +2474,20 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
 
                 winners = OrderList(winners);
                 alternates = OrderList(alternates);
+
+                UpdateDisplayContext(currentDisplayContext);
+                StateHasChanged();
             }
-        } finally { isGenerating = false; }
+        } catch (Exception e) {
+            Console.WriteLine(e);
+        }
     }
 
     private async void FileSelectionHandler(InputFileChangeEventArgs e) {
         if (e.File.Name.EndsWith(".csv")) {
             file = e.File;
-        }
-        else {
+            isGenerated = false;
+        } else {
             await alert("Only .csv accepted as file type");
         }
     }
@@ -2591,9 +2532,10 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
                 }
 
                 users = OrderList(users);
-
-                UpdateContext(currentContext);
                 numSelected = users.Count();
+
+                UpdateDisplayContext(currentDisplayContext);
+                StateHasChanged();
 
                 fileContent = null;
             }
@@ -2605,12 +2547,15 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
         }
     }
 
-    private void UpdateContext(string context) {
-        if (context.Equals("Selected")) { displayList = users; }
-        else if (context.Equals("Winners")) { displayList = winners; }
-        else if (context.Equals("Alternates")) { displayList = alternates; }
+    private void UpdateDisplayContext(DisplayContext displayContext) {
+        switch (displayContext) {
+            case DisplayContext.Selected: displayList = users; break;
+            case DisplayContext.Winners: displayList = winners; break;
+            case DisplayContext.Alternates: displayList = alternates; break;
+            default: break;
+        }
 
-        currentContext = context;
+        currentDisplayContext = displayContext;
     }
 
     private async Task alert(string msg) {
