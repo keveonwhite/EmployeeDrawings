@@ -22,12 +22,12 @@
 <label for="numAlternates" id="numAlternates" style="padding-left: 5vw;">Number of Alternates: </label>
 <input type="number" id="numAlternates" @onchange="NumAlternatesChangeHandler" required />
 
-<button @onclick="ExecuteDrawing">Generate Results of Drawing</button>
+<button @onclick="ExecuteDrawing" disabled=@isGenerating>Generate Results of Drawing</button>
 </div>
 
 <br />
 
-@if (displayList != null) {
+@if (users != null) {
     <ul class="nav nav-pills nav-fill">
         @if (currentContext.Equals("Selected")) {
             <li class="nav-item">
@@ -41,30 +41,32 @@
 
         @if (currentContext.Equals("Winners")) {
             <li class="nav-item">
-                <a class="nav-link active" href="#" @onclick="@(e => UpdateContext("Winners"))">Winners : @(winners.Count()) </a>
+                <a class="nav-link active" href="#" @onclick="@(e => UpdateContext("Winners"))">Winners : @(winners?.Count() ?? 0) </a>
             </li>
         } else {
             <li class="nav-item">
-                <a class="nav-link" href="#" @onclick="@(e => UpdateContext("Winners"))">Winners : @(winners.Count()) </a>
+                <a class="nav-link" href="#" @onclick="@(e => UpdateContext("Winners"))">Winners : @(winners?.Count() ?? 0) </a>
             </li>
         }
 
         @if (currentContext.Equals("Alternates")) {
             <li class="nav-item">
-                <a class="nav-link active" href="#" @onclick="@(e => UpdateContext("Alternates"))">Alternates : @(alternates.Count()) </a>
+                <a class="nav-link active" href="#" @onclick="@(e => UpdateContext("Alternates"))">Alternates : @(alternates?.Count() ?? 0) </a>
             </li>
         } else {
             <li class="nav-item">
-                <a class="nav-link" href="#" @onclick="@(e => UpdateContext("Alternates"))">Alternates : @(alternates.Count()) </a>
+                <a class="nav-link" href="#" @onclick="@(e => UpdateContext("Alternates"))">Alternates : @(alternates?.Count() ?? 0) </a>
             </li>
         }
-
 
         <button type="button" @onclick="DownloadPdf">Download Lists</button>
     </ul>
 
     <br />
 
+}
+
+@if (displayList != null) {
     <table class="table table-striped">
         <thead>
             <tr>
@@ -77,16 +79,6 @@
         </thead>
         <tbody>
             @foreach (var user in displayList) {
-                @if (false) { // currentDept != user["Department"]) {
-                    @(currentDept = user["Department"])
-                    <tr>
-                        <td> @user["Department"] </td>
-                        <td> </td>
-                        <td> </td>
-                        <td> </td>
-                        <td> </td>
-                    </tr>
-                }
                 <tr>
                     <td> @user["Department"] </td>
                     <td> @user["Surname"], @user["GivenName"] @user["MiddleInitial"] </td>
@@ -192,6 +184,7 @@
 
     private string currentDept = "";
     private string currentContext = "Selected";
+    private bool isGenerating;
 
     protected override void OnInitialized() {
         userDbString = @"
@@ -2502,52 +2495,51 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
     }
 
     private async void ExecuteDrawing() {
-        if (fileContent == null) { await ReadFile(); }
+        if (isGenerating) { return; }
 
-        if (users == null) {
-            await alert("File not read");
-            return;
-        }
-        else if (numWinners == null || numAlternates == null) {
-            await alert("A number of winners and alternates must be selected before generating a result");
-            return;
-        }
-        else if (numWinners <= 0) {
-            await alert("Number of winners must be greater than 0");
-            return;
-        }
-        else if (numWinners > users.Count()) {
-            await alert("The number of winners must be less than the number of selected employees");
-            return;
-        }
-        else if (numAlternates < 0) {
-            await alert("The number of alternates must be positive");
-            return;
-        }
-        else if (numWinners + numAlternates > users.Count()) {
-            await alert("The number of winners and alternates, combined, must be less than the number of selected employees");
-            return;
-        }
-        else {
-            List<Dictionary<string, string>> tmp = users.ToList<Dictionary<string, string>>();
-            int idx = r.Next(tmp.Count());
-            winners = new List<Dictionary<string, string>>();
-            for (int i = 0; i < numWinners; i++) {
-                winners = winners.Append(tmp[idx]);
-                tmp.RemoveAt(idx);
-                idx = r.Next(tmp.Count());
+        isGenerating = true;
+        try {
+            await ReadFile();
+
+            if (numAlternates == null) { numAlternates = 0; }
+
+            if (users == null) { await alert("File not read"); }
+            else if (numWinners == null) {
+                await alert("A number of winners must be selected before generating a result");
             }
-
-            alternates = new List<Dictionary<string, string>>();
-            for (int i = 0; i < numAlternates; i++) {
-                alternates = alternates.Append(tmp[idx]);
-                tmp.RemoveAt(idx);
-                idx = r.Next(tmp.Count());
+            else if (numWinners <= 0) {
+                await alert("Number of winners must be greater than 0");
             }
+            else if (numWinners > users.Count()) {
+                await alert("The number of winners must be less than or equal to the number of selected employees");
+            }
+            else if (numAlternates < 0) {
+                await alert("The number of alternates must be positive");
+            }
+            else if (numWinners + numAlternates > users.Count()) {
+                await alert("The number of winners and alternates, combined, must be less than the number of selected employees");
+            }
+            else {
+                List<Dictionary<string, string>> tmp = users.ToList<Dictionary<string, string>>();
+                int idx = r.Next(tmp.Count());
+                winners = new List<Dictionary<string, string>>();
+                for (int i = 0; i < numWinners; i++) {
+                    winners = winners.Append(tmp[idx]);
+                    tmp.RemoveAt(idx);
+                    idx = r.Next(tmp.Count());
+                }
 
-            winners.ToList<Dictionary<string, string>>().Sort(CompareDicts);
-            alternates.ToList<Dictionary<string, string>>().Sort(CompareDicts);
-        }
+                alternates = new List<Dictionary<string, string>>();
+                for (int i = 0; i < numAlternates; i++) {
+                    alternates = alternates.Append(tmp[idx]);
+                    tmp.RemoveAt(idx);
+                    idx = r.Next(tmp.Count());
+                }
+
+                winners = OrderList(winners);
+                alternates = OrderList(alternates);
+            }
+        } finally { isGenerating = false; }
     }
 
     private async void FileSelectionHandler(InputFileChangeEventArgs e) {
@@ -2559,22 +2551,17 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
         }
     }
 
-    private int CompareDicts(Dictionary<string, string> x, Dictionary<string, string> y) {
-        int res = x["Department"].CompareTo(y["Department"]);
-
-        if (res == 0) {
-            res = x["Surname"].CompareTo(y["Surname"]);
-        }
-
-        if (res == 0) {
-            res = x["GivenName"].CompareTo(y["GivenName"]);
-        }
-
-        if (res == 0) {
-            res = x["MiddleInitial"].CompareTo(y["MiddleInitial"]);
-        }
-
-        return res;
+    private IEnumerable<Dictionary<string, string>> OrderList(IEnumerable<Dictionary<string, string>> l) {
+        return l.ToList<Dictionary<string, string>>(
+                ).OrderBy(
+                   d => d["Department"]
+                ).ThenBy(
+                   d => d["Surname"]
+                ).ThenBy(
+                   d => d["GivenName"]
+                ).ThenBy(
+                   d => d["EIN"]
+                );
     }
 
     private async Task ReadFile() {
@@ -2586,6 +2573,7 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
                 fileContent = System.Text.Encoding.UTF8.GetString(buffer);
 
                 string[] lines = fileContent.Split("\n", StringSplitOptions.TrimEntries);
+                lines[0] = lines[0].Remove(0,1);    // remove the first character from first line (which is not trimmable)
                 users = new List<Dictionary<string, string>>();
 
                 foreach (string line in lines) {
@@ -2596,15 +2584,18 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
 
                     Dictionary<string, string>? userInfo;
                     if (userInfoDictionary.TryGetValue(ein, out userInfo)) {
+                        if (users.Contains(userInfo)) { continue; }
                         users = users.Append(userInfo);
                     }
                     else { Console.WriteLine("Couldn't find employee number " + ein); }
                 }
 
-                users.ToList<Dictionary<string, string>>().Sort(CompareDicts);
+                users = OrderList(users);
 
-                displayList = users;
+                UpdateContext(currentContext);
                 numSelected = users.Count();
+
+                fileContent = null;
             }
             else {
                 await alert("Ensure file type is .csv");
@@ -2627,12 +2618,146 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
     }
 
     private async Task DownloadPdf() {
-        // await using var module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./HtmlToPdf.js");
         await using var module = await JsRuntime.InvokeAsync<IJSObjectReference>("import", new object[] { "/HtmlToPdf.js" });
 
-        // Generate and download the PDF
-        await JsRuntime.InvokeVoidAsync("generateAndDownloadPdf", "<h2>Test</h2>", "sample.pdf");
+        if (users == null) { return; }
 
+        string usersTable = "";
+        bool evenRow = true;
+
+        foreach (var user in users) {
+            usersTable += $"<tr style=\"border: 2px solid black; background-color: { (evenRow ? "grey" : "white") }\">";
+
+            usersTable += $"<td style=\"padding: 5px;\"> {user["Department"]}";
+            usersTable += $"<td style=\"padding: 5px;\"> {user["Surname"]}, {user["GivenName"]} {user["MiddleInitial"]}";
+            usersTable += $"<td style=\"padding: 5px;\"> {user["EIN"]}";
+            usersTable += $"<td style=\"padding: 5px;\"> {user["JobTitle"]}";
+            usersTable += $"<td style=\"padding: 5px;\"> {user["Supervisor"]}";
+
+            usersTable += "</tr>";
+
+            evenRow = !evenRow;
+        }
+
+        string html = $@"
+            <h1 style=""background-color: blue;""> {users.Count()} Selected Employees </h1>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Department</th>
+                        <th>Name</th>
+                        <th>EE#</th>
+                        <th>Position</th>
+                        <th>Supervisor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {usersTable}
+                </tbody>
+            </table>
+        ";
+
+        // Generate and download the PDF
+        await JsRuntime.InvokeVoidAsync(
+            "generateAndDownloadPdf", 
+            html, 
+            "SelectedEmployees.pdf"
+        );
+
+        // -------------------------------------------------------------------------------------------------------
+
+        if (winners == null) { return; }
+
+        string winnersTable = "";
+        evenRow = true;
+
+        foreach (var user in winners) {
+            winnersTable += $"<tr style=\"border: 2px solid black; background-color: {(evenRow ? "grey" : "white")}\">";
+
+            winnersTable += $"<td style=\"padding: 5px;\"> {user["Department"]}";
+            winnersTable += $"<td style=\"padding: 5px;\"> {user["Surname"]}, {user["GivenName"]} {user["MiddleInitial"]}";
+            winnersTable += $"<td style=\"padding: 5px;\"> {user["EIN"]}";
+            winnersTable += $"<td style=\"padding: 5px;\"> {user["JobTitle"]}";
+            winnersTable += $"<td style=\"padding: 5px;\"> {user["Supervisor"]}";
+
+            winnersTable += "</tr>";
+
+            evenRow = !evenRow;
+        }
+
+        html = $@"
+            <h1 style=""background-color: blue;""> {winners.Count()} Selected Employees </h1>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Department</th>
+                        <th>Name</th>
+                        <th>EE#</th>
+                        <th>Position</th>
+                        <th>Supervisor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {winnersTable}
+                </tbody>
+            </table>
+        ";
+
+        // Generate and download the PDF
+        await JsRuntime.InvokeVoidAsync(
+            "generateAndDownloadPdf",
+            html,
+            "Winners.pdf"
+        );
+
+        // -------------------------------------------------------------------------------------------------------
+
+        if (alternates == null) { return; }
+
+        string alternatesTable = "";
+        evenRow = true;
+
+        foreach (var user in alternates) {
+            alternatesTable += $"<tr style=\"border: 2px solid black; background-color: {(evenRow ? "grey" : "white")}\">";
+
+            alternatesTable += $"<td style=\"padding: 5px;\"> {user["Department"]}";
+            alternatesTable += $"<td style=\"padding: 5px;\"> {user["Surname"]}, {user["GivenName"]} {user["MiddleInitial"]}";
+            alternatesTable += $"<td style=\"padding: 5px;\"> {user["EIN"]}";
+            alternatesTable += $"<td style=\"padding: 5px;\"> {user["JobTitle"]}";
+            alternatesTable += $"<td style=\"padding: 5px;\"> {user["Supervisor"]}";
+            
+            alternatesTable += "</tr>";
+
+            evenRow = !evenRow;
+        }
+
+        html = $@"
+            <h1 style=""background-color: blue;""> {alternates.Count()} Selected Employees </h1>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Department</th>
+                        <th>Name</th>
+                        <th>EE#</th>
+                        <th>Position</th>
+                        <th>Supervisor</th>
+                    </tr>
+                </thead>
+                <tbody>
+            {alternatesTable}
+                </tbody>
+            </table>
+        ";
+
+        // Generate and download the PDF
+        await JsRuntime.InvokeVoidAsync(
+            "generateAndDownloadPdf",
+            html,
+            "Alternates.pdf"
+        );
     }
 
 
