@@ -1,12 +1,12 @@
-function generateAndDownloadPdf(htmlOrElement, filename) {
+async function generateAndDownloadPdf(html, filename) {
     const doc = new jspdf.jsPDF({
         orientation: 'p',
-        unit: 'pt',
-        format: 'a4'
+        unit: 'in',
+        format: [8.5, 11]
     });
 
     return new Promise((resolve, reject) => {
-        doc.html(htmlOrElement, {
+        doc.html(html, {
             callback: doc => {
                 doc.save(filename);
                 resolve();
