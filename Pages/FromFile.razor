@@ -4,8 +4,7 @@
 @using EmployeeDrawings.Data;
 @inject Microsoft.Graph.GraphServiceClient GraphServiceClient
 @inject IJSRuntime JsRuntime
-
-<!-- attribute [Authorize] -->
+@attribute [Authorize]
 
 <PageTitle>Employee Drawings</PageTitle>
 
@@ -112,7 +111,18 @@
 
     enum DisplayContext { Selected, Winners, Alternates }
 
-    protected override void OnInitialized() {
+    protected override async void OnInitialized() {
+        var result = await GraphServiceClient.Sites[
+            "2e614bb6-2272-4ad7-9c88-82cf921c404a"  // MicrosoftDevelopment Site ID
+        ].Lists[
+            "3dcd877a-d189-4995-9ae6-b353a09a7beb"  // EmployeeData List ID
+        ].Items.Request().GetAsync();
+
+        foreach (var res in result) {
+            Console.WriteLine($"{res.Name}: {res.AdditionalData.First()}");
+            
+        }
+
         userDbString = @"
 Full Name,Given Name,Middle Name,Surname,Employee Number,Position,Location,Direct Supervisor,Email Address,Department
 Susan Marie Kelly,Susan,Marie,Kelly,5,MGR-PIT,Casino Main,Sarah Danforth,SKELLY@oneidanation.org,GAMING TABLE GAMES
@@ -2573,11 +2583,11 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
         foreach (var user in users) {
             usersTable += $"<tr style=\"border: 2px solid black; background-color: { (evenRow ? "grey" : "white") }\">";
 
-            usersTable += $"<td style=\"padding: 5px;\"> {user["Department"]}";
-            usersTable += $"<td style=\"padding: 5px;\"> {user["Surname"]}, {user["GivenName"]} {user["MiddleInitial"]}";
-            usersTable += $"<td style=\"padding: 5px;\"> {user["EIN"]}";
-            usersTable += $"<td style=\"padding: 5px;\"> {user["JobTitle"]}";
-            usersTable += $"<td style=\"padding: 5px;\"> {user["Supervisor"]}";
+            usersTable += $"<td style=\"padding: 5px;\"> {user["Department"]} </td>";
+            usersTable += $"<td style=\"padding: 5px;\"> {user["Surname"]}, {user["GivenName"]} {user["MiddleInitial"]} </td>";
+            usersTable += $"<td style=\"padding: 5px;\"> {user["EIN"]} </td>";
+            usersTable += $"<td style=\"padding: 5px;\"> {user["JobTitle"]} </td>";
+            usersTable += $"<td style=\"padding: 5px;\"> {user["Supervisor"]} </td>";
 
             usersTable += "</tr>";
 
@@ -2620,11 +2630,11 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
         foreach (var user in winners) {
             winnersTable += $"<tr style=\"border: 2px solid black; background-color: {(evenRow ? "grey" : "white")}\">";
 
-            winnersTable += $"<td style=\"padding: 5px;\"> {user["Department"]}";
-            winnersTable += $"<td style=\"padding: 5px;\"> {user["Surname"]}, {user["GivenName"]} {user["MiddleInitial"]}";
-            winnersTable += $"<td style=\"padding: 5px;\"> {user["EIN"]}";
-            winnersTable += $"<td style=\"padding: 5px;\"> {user["JobTitle"]}";
-            winnersTable += $"<td style=\"padding: 5px;\"> {user["Supervisor"]}";
+            winnersTable += $"<td style=\"padding: 5px;\"> {user["Department"]} </td>";
+            winnersTable += $"<td style=\"padding: 5px;\"> {user["Surname"]}, {user["GivenName"]} {user["MiddleInitial"]} </td>";
+            winnersTable += $"<td style=\"padding: 5px;\"> {user["EIN"]} </td>";
+            winnersTable += $"<td style=\"padding: 5px;\"> {user["JobTitle"]} </td>";
+            winnersTable += $"<td style=\"padding: 5px;\"> {user["Supervisor"]} </td>";
 
             winnersTable += "</tr>";
 
@@ -2667,11 +2677,11 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
         foreach (var user in alternates) {
             alternatesTable += $"<tr style=\"border: 2px solid black; background-color: {(evenRow ? "grey" : "white")}\">";
 
-            alternatesTable += $"<td style=\"padding: 5px;\"> {user["Department"]}";
-            alternatesTable += $"<td style=\"padding: 5px;\"> {user["Surname"]}, {user["GivenName"]} {user["MiddleInitial"]}";
-            alternatesTable += $"<td style=\"padding: 5px;\"> {user["EIN"]}";
-            alternatesTable += $"<td style=\"padding: 5px;\"> {user["JobTitle"]}";
-            alternatesTable += $"<td style=\"padding: 5px;\"> {user["Supervisor"]}";
+            alternatesTable += $"<td style=\"padding: 5px;\"> {user["Department"]} </td>";
+            alternatesTable += $"<td style=\"padding: 5px;\"> {user["Surname"]}, {user["GivenName"]} {user["MiddleInitial"]} </td>";
+            alternatesTable += $"<td style=\"padding: 5px;\"> {user["EIN"]} </td>";
+            alternatesTable += $"<td style=\"padding: 5px;\"> {user["JobTitle"]} </td>";
+            alternatesTable += $"<td style=\"padding: 5px;\"> {user["Supervisor"]} </td>";
             
             alternatesTable += "</tr>";
 
@@ -2707,7 +2717,8 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
 
 
     // TODO: API to sharepoint for employee numbers
-    // users will construct xlsx and save as csv; excels can't be read asynchronously
-    // employee data list id: 3dcd877a-d189-4995-9ae6-b353a09a7beb
+    // MicrosoftDevelopment id: 2e614bb6-2272-4ad7-9c88-82cf921c404a
+    // employee data list id:   3dcd877a-d189-4995-9ae6-b353a09a7beb
+    // list items graph query:  https://graph.microsoft.com/v1.0/sites/2e614bb6-2272-4ad7-9c88-82cf921c404a/lists/3dcd877a-d189-4995-9ae6-b353a09a7beb/items
     // https://stackoverflow.com/questions/69886010/how-can-i-create-a-pdf-for-download-in-blazor-wasm
 }
