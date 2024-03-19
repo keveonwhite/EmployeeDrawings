@@ -111,17 +111,64 @@
 
     enum DisplayContext { Selected, Winners, Alternates }
 
-    protected override async void OnInitialized() {
-        var result = await GraphServiceClient.Sites[
+    // Async for MS Graph operations
+    protected override /*async*/ void OnInitialized() {
+        /* 
+         * Possible permissions issues get users from MS Graph
+         * Error when getting user by title, could try similar filter to getting super
+         * but would be expensive (timely)
+         * Wait for GHR SharePoint
+        
+
+        GraphServiceClient graphClient = GraphServiceClient;
+        IListItemsCollectionRequest page = graphClient.Sites[
             "2e614bb6-2272-4ad7-9c88-82cf921c404a"  // MicrosoftDevelopment Site ID
         ].Lists[
             "3dcd877a-d189-4995-9ae6-b353a09a7beb"  // EmployeeData List ID
-        ].Items.Request().GetAsync();
+                                                    // Ask Jeremiah where the SharePoint version of the GHR Data is
+        ].Items.Request().Expand(
+            "fields($select=Title,IDNumber,SupervisorEmail)"
+        );
 
-        foreach (var res in result) {
-            Console.WriteLine($"{res.Name}: {res.AdditionalData.First()}");
-            
-        }
+        do {
+            IListItemsCollectionPage result = await page.GetAsync();
+            foreach (ListItem res in result) {
+                IDictionary<string, object> data = res.Fields.AdditionalData;
+
+                User user = await graphClient.Users[
+                    data["Title"].ToString()
+                ].Request().Select(
+                    "$select=userPrincipalName,displayName,givenName,surname,jobTitle,department"
+                ).GetAsync();
+
+                /*
+                User? super = null;
+                if (!data["SupervisorEmail"].Equals("NULL")) {
+                    IGraphServiceUsersCollectionPage rs = await graphClient.Users.Request().Filter(
+                        $"$userPrincipalName eq {data["SupervisorEmail"]}"
+                    ).GetAsync();
+                    super = rs.First();
+                }
+                //
+
+                Dictionary<string, string> userInfo = new();
+                userInfo.Add("EIN", data["IDNumber"]?.ToString() ?? "-1");
+                userInfo.Add("UserPrincipalName", user.UserPrincipalName);
+                userInfo.Add("DisplayName", user.DisplayName);
+                userInfo.Add("GivenName", user.GivenName);
+                userInfo.Add("MiddleInitial", "");
+                userInfo.Add("Surname", user.Surname);
+                userInfo.Add("JobTitle", user.JobTitle);
+                userInfo.Add("Supervisor", ""); // super?.DisplayName ?? "");
+                userInfo.Add("Department", user.Department);
+
+                userInfoDictionary.Add(data["IDNumber"].ToString() ?? "-1", userInfo);
+            }
+
+            page = result.NextPageRequest;
+        } while (page != null);
+        */
+        
 
         userDbString = @"
 Full Name,Given Name,Middle Name,Surname,Employee Number,Position,Location,Direct Supervisor,Email Address,Department
@@ -2401,7 +2448,7 @@ Briana Caitlin Hill,Briana,Caitlin,Hill,18138,REP-PATIENT ACCOUNT,Community Heal
 Emma Louise Boocock,Emma,Louise,Boocock,18139,COUNSELOR-TRIAGE,Social Services Building,Joy Salzwedel,eboocock@oneidanation.org,COMHE BEHAVIORAL HEALTH
 Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,Elementary School,Sharon Mousseau,cpolanc1@oneidanation.org,ELEMENTARY SCHOOL
 ";
-
+  
         string[] userDbStringLines = userDbString.Split("\n", StringSplitOptions.TrimEntries);
         foreach (string line in userDbStringLines) {
             string[] fields = line.Split(",", StringSplitOptions.TrimEntries);

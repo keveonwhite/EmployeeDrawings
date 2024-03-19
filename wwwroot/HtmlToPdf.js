@@ -1,4 +1,4 @@
-async function generateAndDownloadPdf(html, filename) {
+ function generateAndDownloadPdf(html, filename) {
     const doc = new jspdf.jsPDF({
         orientation: 'p',
         unit: 'in',
