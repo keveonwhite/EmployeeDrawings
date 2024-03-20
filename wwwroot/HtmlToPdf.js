@@ -1,8 +1,8 @@
- function generateAndDownloadPdf(html, filename) {
+async function generateAndDownloadPdf(html, filename) {
     const doc = new jspdf.jsPDF({
         orientation: 'p',
-        unit: 'in',
-        format: [8.5, 11]
+        unit: 'pt',
+        format: 'letter'
     });
 
     return new Promise((resolve, reject) => {
