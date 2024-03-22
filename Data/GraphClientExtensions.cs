@@ -54,7 +54,10 @@ internal static class GraphClientExtensions
         {
             var result = await Provider.RequestAccessToken(new AccessTokenRequestOptions()
             {
-                Scopes = new[] { "https://graph.microsoft.com/User.Read.All" }
+                Scopes = new[] { 
+                    "https://graph.microsoft.com/User.Read.All", 
+                    "https://graph.microsoft.com/Sites.Read.All" 
+                }
             });
 
             if (result.TryGetToken(out var token))
