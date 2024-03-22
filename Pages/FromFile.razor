@@ -111,65 +111,7 @@
 
     enum DisplayContext { Selected, Winners, Alternates }
 
-    // Async for MS Graph operations
-    protected override /*async*/ void OnInitialized() {
-        /* 
-         * Possible permissions issues get users from MS Graph
-         * Error when getting user by title, could try similar filter to getting super
-         * but would be expensive (timely)
-         * Wait for GHR SharePoint
-        
-
-        GraphServiceClient graphClient = GraphServiceClient;
-        IListItemsCollectionRequest page = graphClient.Sites[
-            "2e614bb6-2272-4ad7-9c88-82cf921c404a"  // MicrosoftDevelopment Site ID
-        ].Lists[
-            "3dcd877a-d189-4995-9ae6-b353a09a7beb"  // EmployeeData List ID
-                                                    // Ask Jeremiah where the SharePoint version of the GHR Data is
-        ].Items.Request().Expand(
-            "fields($select=Title,IDNumber,SupervisorEmail)"
-        );
-
-        do {
-            IListItemsCollectionPage result = await page.GetAsync();
-            foreach (ListItem res in result) {
-                IDictionary<string, object> data = res.Fields.AdditionalData;
-
-                User user = await graphClient.Users[
-                    data["Title"].ToString()
-                ].Request().Select(
-                    "$select=userPrincipalName,displayName,givenName,surname,jobTitle,department"
-                ).GetAsync();
-
-                /*
-                User? super = null;
-                if (!data["SupervisorEmail"].Equals("NULL")) {
-                    IGraphServiceUsersCollectionPage rs = await graphClient.Users.Request().Filter(
-                        $"$userPrincipalName eq {data["SupervisorEmail"]}"
-                    ).GetAsync();
-                    super = rs.First();
-                }
-                //
-
-                Dictionary<string, string> userInfo = new();
-                userInfo.Add("EIN", data["IDNumber"]?.ToString() ?? "-1");
-                userInfo.Add("UserPrincipalName", user.UserPrincipalName);
-                userInfo.Add("DisplayName", user.DisplayName);
-                userInfo.Add("GivenName", user.GivenName);
-                userInfo.Add("MiddleInitial", "");
-                userInfo.Add("Surname", user.Surname);
-                userInfo.Add("JobTitle", user.JobTitle);
-                userInfo.Add("Supervisor", ""); // super?.DisplayName ?? "");
-                userInfo.Add("Department", user.Department);
-
-                userInfoDictionary.Add(data["IDNumber"].ToString() ?? "-1", userInfo);
-            }
-
-            page = result.NextPageRequest;
-        } while (page != null);
-        */
-        
-
+    protected override void OnInitialized() {
         userDbString = @"
 Full Name,Given Name,Middle Name,Surname,Employee Number,Position,Location,Direct Supervisor,Email Address,Department
 Susan Marie Kelly,Susan,Marie,Kelly,5,MGR-PIT,Casino Main,Sarah Danforth,SKELLY@oneidanation.org,GAMING TABLE GAMES
@@ -2448,7 +2390,7 @@ Briana Caitlin Hill,Briana,Caitlin,Hill,18138,REP-PATIENT ACCOUNT,Community Heal
 Emma Louise Boocock,Emma,Louise,Boocock,18139,COUNSELOR-TRIAGE,Social Services Building,Joy Salzwedel,eboocock@oneidanation.org,COMHE BEHAVIORAL HEALTH
 Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,Elementary School,Sharon Mousseau,cpolanc1@oneidanation.org,ELEMENTARY SCHOOL
 ";
-  
+
         string[] userDbStringLines = userDbString.Split("\n", StringSplitOptions.TrimEntries);
         foreach (string line in userDbStringLines) {
             string[] fields = line.Split(",", StringSplitOptions.TrimEntries);
@@ -2487,8 +2429,6 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
 
         isGenerated = true;
         try {
-            await ReadFile();
-
             if (numAlternates == null) { numAlternates = 0; }
 
             if (users == null) { await alert("File not read"); }
@@ -2544,6 +2484,7 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
         if (e.File.Name.EndsWith(".csv")) {
             file = e.File;
             isGenerated = false;
+            await ReadFile();
         } else {
             await alert("Only .csv accepted as file type");
         }
@@ -2574,6 +2515,8 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
                 lines[0] = lines[0].Remove(0,1);    // remove the first character from first line (which is not trimmable)
                 users = new List<Dictionary<string, string>>();
 
+                List<string> eins = new List<string>();
+
                 foreach (string line in lines) {
                     if (line.Count() == 0) { continue; }
                     string ein = line.Split(",", StringSplitOptions.TrimEntries)[0];
@@ -2586,7 +2529,72 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
                         users = users.Append(userInfo);
                     }
                     else { Console.WriteLine("Couldn't find employee number " + ein); }
+
+                    /* Commented code is for connection to SharePoint finding the person by Employee ID;
+                     * The issue is that it takes ~20 seconds for only 70 entrants
+                     * That's far too slow. Maybe better luck will be had with the new GHR API
+                     * As for now, data is being found in a text string (csv) and parsed
+                     * This string is not automatically updated; therefore, it is not a viable solution.
+                     * SharePoint is, technically, also not automatically updated
+                     
+
+                    if (ein.Count() == 0) { continue; } // no ein
+                    if (eins.Contains(ein)) { continue; }  // duplicate ein
+                    else { eins.Append(ein); }
+
+                    GraphServiceClient graphClient = GraphServiceClient;
+                    IListItemsCollectionPage result = await graphClient.Sites[
+                        "2e614bb6-2272-4ad7-9c88-82cf921c404a"  // MicrosoftDevelopment Site ID
+                    ].Lists[
+                        "3dcd877a-d189-4995-9ae6-b353a09a7beb"  // EmployeeData List ID
+                                                                // Ask Jeremiah where the SharePoint version of the GHR Data is
+                    ].Items.Request().Filter(
+                        $"fields/IDNumber eq '{ein}'"   
+                    ).Expand(
+                        "fields($select=Title,IDNumber,SupervisorEmail)"
+                    ).GetAsync();
+
+                    if (result == null) { Console.WriteLine($"Null result object for ein = {ein}"); continue; }
+                    if (result.Count == 0) { Console.WriteLine($"reuslt object empty for ein = {ein}"); continue; }
+                    IDictionary<string, object> data = result.First().Fields.AdditionalData;
+
+                    if (data == null) { Console.WriteLine($"Null data object for ein = {ein}"); continue; }
+
+                    User user = await graphClient.Users[
+                        data["Title"].ToString()
+                    ].Request().Select(
+                        "userPrincipalName,displayName,givenName,surname,jobTitle,department"
+                    ).GetAsync();
+
+                    if (user == null) { Console.WriteLine($"Null user object for ein = {ein}"); continue; }
+
+                    
+                    User? super = null;
+                    if (!data["SupervisorEmail"].Equals("NULL")) {
+                        IGraphServiceUsersCollectionPage rs = await graphClient.Users.Request().Filter(
+                            $"userPrincipalName eq {data["SupervisorEmail"]}"
+                        ).GetAsync();
+                        super = rs.First();
+                    }
+                    
+
+                    Dictionary<string, string> userInfo = new();
+                    userInfo.Add("EIN", data["IDNumber"]?.ToString() ?? "-1");
+                    userInfo.Add("UserPrincipalName", user.UserPrincipalName);
+                    userInfo.Add("DisplayName", user.DisplayName);
+                    userInfo.Add("GivenName", user.GivenName);
+                    userInfo.Add("MiddleInitial", "");
+                    userInfo.Add("Surname", user.Surname);
+                    userInfo.Add("JobTitle", user.JobTitle);
+                    userInfo.Add("Supervisor", ""); // super?.DisplayName ?? "");
+                    userInfo.Add("Department", user.Department);
+
+                    users = users.Append(userInfo);  
+                    */
+
                 }
+
+
 
                 users = OrderList(users);
                 numSelected = users.Count();
@@ -2628,13 +2636,13 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
         bool evenRow = true;
 
         foreach (var user in users) {
-            usersTable += $"<tr style=\"border: 2px solid black; background-color: { (evenRow ? "grey" : "white") }\">";
+            usersTable += $"<tr class=\"table-row\" style=\"border: 2px solid black; background-color: { (evenRow ? "grey" : "white") }\">";
 
-            usersTable += $"<td style=\"padding: 5px;\"> {user["Department"]} </td>";
-            usersTable += $"<td style=\"padding: 5px;\"> {user["Surname"]}, {user["GivenName"]} {user["MiddleInitial"]} </td>";
-            usersTable += $"<td style=\"padding: 5px;\"> {user["EIN"]} </td>";
-            usersTable += $"<td style=\"padding: 5px;\"> {user["JobTitle"]} </td>";
-            usersTable += $"<td style=\"padding: 5px;\"> {user["Supervisor"]} </td>";
+            usersTable += $"<td class=\"table-data\" style=\"padding: 5%; width: 15%\"> {user["Department"]} </td>";
+            usersTable += $"<td class=\"table-data\" style=\"padding: 5%; width: 15%\"> {user["Surname"]}, {user["GivenName"]} {user["MiddleInitial"]} </td>";
+            usersTable += $"<td class=\"table-data\" style=\"padding: 5%; width: 15%\"> {user["EIN"]} </td>";
+            usersTable += $"<td class=\"table-data\" style=\"padding: 5%; width: 15%\"> {user["JobTitle"]} </td>";
+            usersTable += $"<td class=\"table-data\" style=\"padding: 5%; width: 15%\"> {user["Supervisor"]} </td>";
 
             usersTable += "</tr>";
 
@@ -2642,11 +2650,12 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
         }
 
         string html = $@"
-            <h1 style=""background-color: blue;""> {users.Count()} Selected Employees </h1>
+            <h1 style=""display: inline; white-space: nowrap;""> {users.Count()} Selected Employees </h1>
+            <br />
 
-            <table>
+            <table class=""table"">
                 <thead>
-                    <tr>
+                    <tr class=""table-row"">
                         <th>Department</th>
                         <th>Name</th>
                         <th>EE#</th>
@@ -2677,11 +2686,11 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
         foreach (var user in winners) {
             winnersTable += $"<tr style=\"border: 2px solid black; background-color: {(evenRow ? "grey" : "white")}\">";
 
-            winnersTable += $"<td style=\"padding: 5px;\"> {user["Department"]} </td>";
-            winnersTable += $"<td style=\"padding: 5px;\"> {user["Surname"]}, {user["GivenName"]} {user["MiddleInitial"]} </td>";
-            winnersTable += $"<td style=\"padding: 5px;\"> {user["EIN"]} </td>";
-            winnersTable += $"<td style=\"padding: 5px;\"> {user["JobTitle"]} </td>";
-            winnersTable += $"<td style=\"padding: 5px;\"> {user["Supervisor"]} </td>";
+            winnersTable += $"<td style=\"padding: 2%; width: 15%\"> {user["Department"]} </td>";
+            winnersTable += $"<td style=\"padding: 2%; width: 15%\"> {user["Surname"]}, {user["GivenName"]} {user["MiddleInitial"]} </td>";
+            winnersTable += $"<td style=\"padding: 2%; width: 15%\"> {user["EIN"]} </td>";
+            winnersTable += $"<td style=\"padding: 2%; width: 15%\"> {user["JobTitle"]} </td>";
+            winnersTable += $"<td style=\"padding: 2%; width: 15%\"> {user["Supervisor"]} </td>";
 
             winnersTable += "</tr>";
 
@@ -2689,7 +2698,8 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
         }
 
         html = $@"
-            <h1 style=""background-color: blue;""> {winners.Count()} Selected Employees </h1>
+            <h1 style=""display: inline; white-space: nowrap;""> {winners.Count()} Winners </h1>
+            <br />
 
             <table>
                 <thead>
@@ -2716,7 +2726,7 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
 
         // -------------------------------------------------------------------------------------------------------
 
-        if (alternates == null) { return; }
+        if (alternates == null || alternates.Count() == 0) { return; }
 
         string alternatesTable = "";
         evenRow = true;
@@ -2736,7 +2746,8 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
         }
 
         html = $@"
-            <h1 style=""background-color: blue;""> {alternates.Count()} Selected Employees </h1>
+            <h1 style=""display: inline; white-space: nowrap;""> {alternates.Count()} Alternates </h1>
+            <br />
 
             <table>
                 <thead>
@@ -2768,4 +2779,5 @@ Christopher Micheal Polanco,Christopher,Micheal,Polanco,18140,BONUS-COACH ELEM,E
     // employee data list id:   3dcd877a-d189-4995-9ae6-b353a09a7beb
     // list items graph query:  https://graph.microsoft.com/v1.0/sites/2e614bb6-2272-4ad7-9c88-82cf921c404a/lists/3dcd877a-d189-4995-9ae6-b353a09a7beb/items
     // https://stackoverflow.com/questions/69886010/how-can-i-create-a-pdf-for-download-in-blazor-wasm
+    // Test Dataverse Table:    https://make.powerapps.com/environments/b04dd040-bc6d-4fbb-9746-2b0fca1de38b/solutions/c1e5f878-f1fe-ec11-82e5-000d3a8bb620/entities/f7a1bf21-a6ae-ee11-a569-0022481dbda2
 }
