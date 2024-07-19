@@ -1,12 +1,9 @@
-using System;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
 using Microsoft.Authentication.WebAssembly.Msal.Models;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Graph;
+using Microsoft.Kiota.Abstractions.Authentication;
+using Microsoft.Kiota.Http.HttpClientLibrary;
+using Microsoft.Kiota.Abstractions;
+using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
 
 /// <summary>
 /// Adds services and implements methods to use Microsoft Graph SDK.
@@ -30,10 +27,20 @@ internal static class GraphClientExtensions
         });
 
         services.AddScoped<IAuthenticationProvider, GraphAuthenticationProvider>();
-        services.AddScoped<IHttpProvider, HttpClientHttpProvider>(sp => new HttpClientHttpProvider(new HttpClient()));
-        services.AddScoped(sp => new GraphServiceClient(
-              sp.GetRequiredService<IAuthenticationProvider>(),
-              sp.GetRequiredService<IHttpProvider>()));
+
+        services.AddScoped<GraphServiceClient>(sp =>
+        {
+            var authProvider = sp.GetRequiredService<IAuthenticationProvider>();
+            var httpClient = sp.GetRequiredService<HttpClient>();
+
+            var requestAdapter = new HttpClientRequestAdapter(authProvider, httpClient: httpClient)
+            {
+                BaseUrl = "https://graph.microsoft.com/v1.0"
+            };
+
+            return new GraphServiceClient(requestAdapter);
+        });
+
         return services;
     }
 
@@ -41,57 +48,29 @@ internal static class GraphClientExtensions
     /// Implements IAuthenticationProvider interface.
     /// Tries to get an access token for Microsoft Graph.
     /// </summary>
-    private class GraphAuthenticationProvider : IAuthenticationProvider
+    public class GraphAuthenticationProvider : Microsoft.Kiota.Abstractions.Authentication.IAuthenticationProvider
     {
-        public GraphAuthenticationProvider(IAccessTokenProvider provider)
+        private readonly Microsoft.AspNetCore.Components.WebAssembly.Authentication.IAccessTokenProvider _provider;
+
+        public GraphAuthenticationProvider(Microsoft.AspNetCore.Components.WebAssembly.Authentication.IAccessTokenProvider provider)
         {
-            Provider = provider;
+            _provider = provider;
         }
 
-        public IAccessTokenProvider Provider { get; }
-
-        public async Task AuthenticateRequestAsync(HttpRequestMessage request)
+        public async Task AuthenticateRequestAsync(RequestInformation request, Dictionary<string, object>? additionalAuthenticationContext = null, CancellationToken cancellationToken = default)
         {
-            var result = await Provider.RequestAccessToken(new AccessTokenRequestOptions()
+            var result = await _provider.RequestAccessToken(new AccessTokenRequestOptions
             {
-                Scopes = new[] { 
-                    "https://graph.microsoft.com/User.Read.All", 
-                    "https://graph.microsoft.com/Sites.Read.All" 
-                }
+                Scopes = new[] {
+                "https://graph.microsoft.com/User.Read.All",
+                "https://graph.microsoft.com/Sites.Read.All"
+            }
             });
 
             if (result.TryGetToken(out var token))
             {
-                request.Headers.Authorization ??= new AuthenticationHeaderValue("Bearer", token.Value);
+                request.Headers.Add("Authorization", $"Bearer {token.Value}");
             }
-        }
-    }
-
-    private class HttpClientHttpProvider : IHttpProvider
-    {
-        private readonly HttpClient _client;
-
-        public HttpClientHttpProvider(HttpClient client)
-        {
-            _client = client;
-        }
-
-        public ISerializer Serializer { get; } = new Serializer();
-
-        public TimeSpan OverallTimeout { get; set; } = TimeSpan.FromSeconds(300);
-
-        public void Dispose()
-        {
-        }
-
-        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request)
-        {
-            return _client.SendAsync(request);
-        }
-
-        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationToken cancellationToken)
-        {
-            return _client.SendAsync(request, completionOption, cancellationToken);
         }
     }
 }

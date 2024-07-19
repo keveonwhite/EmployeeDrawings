@@ -1,7 +1,9 @@
 ﻿namespace EmployeeDrawings.Models;
+using Microsoft.Graph.Models;
 
-public class Employee {
-    public Microsoft.Graph.User UserInfo { get; }
+public class Employee
+{
+    public User UserInfo { get; }
 
-    public Employee(Microsoft.Graph.User user) { UserInfo = user; }
+    public Employee(User user) { UserInfo = user; }
 }
